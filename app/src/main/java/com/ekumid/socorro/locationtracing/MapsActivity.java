@@ -1,7 +1,9 @@
 package com.ekumid.socorro.locationtracing;
 
+import android.app.ProgressDialog;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -14,6 +16,9 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.appindexing.Action;
+import com.google.android.gms.appindexing.AppIndex;
+import com.google.android.gms.appindexing.Thing;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GooglePlayServicesUtil;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -29,6 +34,8 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.util.HashMap;
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
@@ -42,8 +49,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     double latitude;
     double longitude;
     Marker mCurrLocationMarker;
-    private TextView lblLocation;
-
+    private TextView lblLocation,lblLocatio;
+    static double lat,lnng;
+        Button send;
     // Google client to interact with Google API
     private GoogleApiClient mGoogleApiClient;
 
@@ -51,12 +59,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private boolean mRequestingLocationUpdates = false;
 
     private LocationRequest mLocationRequest;
+    final public String REGISTER_URL = "http://ekumeed.esy.es/ls.php";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
         lblLocation = (TextView) findViewById(R.id.lblLocation);
+        lblLocatio = (TextView) findViewById(R.id.lblLocatio);
+        send=(Button)findViewById(R.id.btn);
 
 
         // First we need to check availability of play services
@@ -69,6 +80,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+        send.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                togglePeriodicLocationUpdates();
+                displayLocation();
+                Toast.makeText(MapsActivity.this,"Send",Toast.LENGTH_SHORT).show();
+
+            }
+        });
 
 
 
@@ -106,10 +128,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(100);
-        mLocationRequest.setFastestInterval(100);
+        mLocationRequest.setInterval(10000);
+        mLocationRequest.setFastestInterval(10000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setSmallestDisplacement(5);
+        mLocationRequest.setSmallestDisplacement(10);
 
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
@@ -206,20 +228,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    /**
-     * Stopping location updates
-     */
-    protected void stopLocationUpdates() {
-        LocationServices.FusedLocationApi.removeLocationUpdates(
-                mGoogleApiClient, this);
-    }
+//    /**
+//     * Stopping location updates
+//     */
+//    protected void stopLocationUpdates() {
+//        LocationServices.FusedLocationApi.removeLocationUpdates(
+//                mGoogleApiClient, this);
+//    }
 
     @Override
     public void onLocationChanged(Location location) {
         mLastLocation = location;
 
-        Toast.makeText(getApplicationContext(), "Location changed!",
-                Toast.LENGTH_SHORT).show();
+//        Toast.makeText(getApplicationContext(), "Location changed!",
+//                Toast.LENGTH_SHORT).show();
 
         Log.d("onLocationChanged", "entered");
 
@@ -241,7 +263,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //move map camera
         mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
         mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
-        Toast.makeText(MapsActivity.this, "Your Current Location", Toast.LENGTH_LONG).show();
+//        Toast.makeText(MapsActivity.this, "Your Current Location", Toast.LENGTH_LONG).show();
 
         Log.d("onLocationChanged", String.format("latitude:%.3f longitude:%.3f", latitude, longitude));
 
@@ -250,9 +272,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
             Log.d("onLocationChanged", "Removing Location Updates");
         }
+
+//        togglePeriodicLocationUpdates();
+//        displayLocation();
         Log.d("onLocationChanged", "Exit");
-        togglePeriodicLocationUpdates();
-            displayLocation();
 
 
     }
@@ -276,8 +299,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (mLastLocation != null) {
             double latitude = mLastLocation.getLatitude();
             double longitude = mLastLocation.getLongitude();
-
+           //start here json work for sending location
+            lat=mLastLocation.getLatitude();
+            lnng=mLastLocation.getLongitude();
             lblLocation.setText(latitude + ", " + longitude);
+            registerUser();
+
+
+
+
+
 
         } else {
 
@@ -301,5 +332,58 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Log.d(TAG, "Periodic location updates started!");
 
 
+    }
+    private void registerUser() {
+        //String name = editTextName.getText().toString().trim().toLowerCase();
+
+
+
+        Boolean flag = true;
+
+
+
+            register(lat, lnng);
+        }
+
+
+    private void register(final Double lat, final Double lnng) {
+        class RegisterUser extends AsyncTask<String, Void, String> {
+            ProgressDialog loading;
+            RegisterUserClass ruc = new RegisterUserClass();
+
+
+            @Override
+            protected void onPreExecute() {
+                super.onPreExecute();
+//                loading =  ProgressDialog.show(MapsActivity.this, "Please wait", "Loading...");
+            }
+
+            @Override
+            protected void onPostExecute(String s) {
+                super.onPostExecute(s);
+
+                lblLocatio.setText(String.valueOf(lat));
+//                loading.dismiss();
+
+//                Toast.makeText(getApplicationContext(),s,Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            protected String doInBackground(String... params) {
+
+                HashMap<String, String> data = new HashMap<String,String>();
+                // data.put("name",params[0]);
+                data.put("lat", String.valueOf(lat));
+                data.put("lon", String.valueOf(lnng));
+
+
+                String result = ruc.sendPostRequest(REGISTER_URL,data);
+
+                return  result;
+            }
+        }
+
+        RegisterUser ru = new RegisterUser();
+        ru.execute();
     }
 }

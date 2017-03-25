@@ -3,6 +3,7 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 25
     buildToolsVersion "25.0.2"
+    useLibrary 'org.apache.http.legacy'
     defaultConfig {
         applicationId "com.ekumid.socorro.locationtracing"
         minSdkVersion 16
@@ -27,4 +28,4 @@ dependencies {
     compile 'com.android.support:appcompat-v7:25.3.0'
     compile 'com.google.android.gms:play-services:10.2.0'
     testCompile 'junit:junit:4.12'
-}
+ }
